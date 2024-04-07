@@ -10,14 +10,15 @@ import (
 
 func main() {
 	funcSignature := "transfer%d(address,uint256)"
+	tries := 100000000
 
 	startSeq := time.Now()
-	tryBruteForce(funcSignature, 1000000)
+	tryBruteForce(funcSignature, tries)
 	fmt.Println("Sequential brute force done : %s", time.Since(startSeq))
 
 	startThreaded := time.Now()
 	var wg sync.WaitGroup
-	tryBruteForceThreaded(&wg, funcSignature, 1000000)
+	tryBruteForceThreaded(&wg, funcSignature, tries)
 	wg.Wait()
 	fmt.Println("Threaded brute force done : %s", time.Since(startThreaded))
 }
@@ -27,22 +28,22 @@ func tryBruteForceThreaded(wg *sync.WaitGroup, funcPattern string, tries int) {
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
-			newFuncSig := fmt.Sprintf(funcPattern, index)
-			funcSelector := getFuncSelector(newFuncSig)
-			if funcSelector[0:4] == "0000" {
-				println(newFuncSig + " " + funcSelector)
-			}
+			checkZeros(funcPattern, index)
 		}(i)
 	}
 }
 
 func tryBruteForce(funcPattern string, tries int) {
 	for i := 0; i < tries; i++ {
-		newFuncSig := fmt.Sprintf(funcPattern, i)
-		funcSelector := getFuncSelector(newFuncSig)
-		if funcSelector[0:4] == "0000" {
-			println(newFuncSig + " " + funcSelector)
-		}
+		checkZeros(funcPattern, i)
+	}
+}
+
+func checkZeros(funcPattern string, index int) {
+	newFuncSig := fmt.Sprintf(funcPattern, index)
+	funcSelector := getFuncSelector(newFuncSig)
+	if funcSelector[0:4] == "0000" {
+		println(newFuncSig + " " + funcSelector)
 	}
 }
 
