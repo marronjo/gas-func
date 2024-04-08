@@ -8,8 +8,8 @@ import (
 )
 
 func main() {
-	funcSignature := "withdraw%d()"
-	tries := 100000
+	funcSignature := "placeOrder%d(uint24,address,uint)"
+	tries := 10000000
 
 	maxZeroes := 0
 	minFuncSelector := ""
@@ -22,7 +22,7 @@ func main() {
 		funcSelector := getFuncSelector(newFuncSig)
 
 		numZeroes := countLeadingZeros(funcSelector)
-		if numZeroes > maxZeroes {
+		if numZeroes%2 == 0 && numZeroes > maxZeroes {
 			maxZeroes = numZeroes
 			minFuncSelector = funcSelector
 			minFuncName = newFuncSig
