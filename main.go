@@ -4,19 +4,65 @@ import (
 	"encoding/hex"
 	"fmt"
 	"golang.org/x/crypto/sha3"
+	"sync"
 	"time"
 )
 
 func main() {
-	funcSignature := "placeOrder%d(uint24,address,uint)"
-	tries := 10000000
+	funcSignature := "placeOrder%d(uint24,address)"
+	tries := 100000000
+	searchFuncSelectorBenchmark(funcSignature, tries)
+	searchFuncSelectorFast(funcSignature)
+}
 
+func searchFuncSelectorFast(funcSignature string) {
+	start := time.Now()
+	var sender sync.WaitGroup
+	ch := make(chan string, 100)
+	for i := 0; i < 10; i++ {
+		sender.Add(1)
+		go runRoutines(&sender, ch, funcSignature, i)
+	}
+	go receiveFuncSelectors(ch)
+	sender.Wait()
+	close(ch)
+	fmt.Println(fmt.Sprintf("Complete fast run in %s", time.Since(start)))
+}
+
+func receiveFuncSelectors(ch <-chan string) {
+	open := true
+	output := ""
+	for open {
+		output, open = <-ch
+		fmt.Println("Received from channel : "+output+" with open status : ", open)
+	}
+}
+
+func runRoutines(wg *sync.WaitGroup, ch chan<- string, funcSignature string, tries int) {
+	defer wg.Done()
+	maxZeroes := 0
+	minFuncSelector := ""
+	startNum := tries * 10000000
+	maxNum := (tries + 1) * 10000000
+	fmt.Println("Start -> Max : ", startNum, maxNum)
+	for i := startNum; i < maxNum; i++ {
+		newFuncSig := fmt.Sprintf(funcSignature, i)
+		funcSelector := getFuncSelector(newFuncSig)
+
+		numZeroes := countLeadingZeros(funcSelector)
+		if numZeroes%2 == 0 && numZeroes > maxZeroes {
+			maxZeroes = numZeroes
+			minFuncSelector = funcSelector
+			ch <- minFuncSelector
+		}
+	}
+}
+
+func searchFuncSelectorBenchmark(funcSignature string, tries int) {
 	maxZeroes := 0
 	minFuncSelector := ""
 	minFuncName := ""
-
 	start := time.Now()
-
 	for i := 0; i < tries; i++ {
 		newFuncSig := fmt.Sprintf(funcSignature, i)
 		funcSelector := getFuncSelector(newFuncSig)
@@ -48,5 +94,6 @@ func countLeadingZeros(funcSelector string) int {
 func getFuncSelector(funcSignature string) string {
 	hash := sha3.NewLegacyKeccak256()
 	hash.Write([]byte(funcSignature))
-	return hex.EncodeToString(hash.Sum(nil)[:4])
+	funcSelBytes := hash.Sum(nil)
+	return hex.EncodeToString(funcSelBytes[:4])
 }
