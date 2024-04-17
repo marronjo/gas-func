@@ -11,19 +11,19 @@ import (
 
 func main() {
 	funcSignature := "balanceOf%d(address)"
-	tries := 10000000
-	searchFuncSelectorFastest(funcSignature, runtime.GOMAXPROCS(runtime.NumCPU()), tries)
+	searchFuncSelector(funcSignature, runtime.GOMAXPROCS(runtime.NumCPU()))
 }
 
-// concurrent search, split search amount 10 goroutines and stop as soon as a minimum value function selector is found
-func searchFuncSelectorFastest(funcSignature string, numThreads int, tries int) {
+func searchFuncSelector(funcSignature string, numThreads int) {
 	start := time.Now()
 	var sender sync.WaitGroup
 	ch := make(chan string, 100)
 	goldenFound := make(chan bool, numThreads)
+	tries := ^uint(0) / uint(numThreads)
+
 	for thread := 0; thread < numThreads; thread++ {
 		sender.Add(1)
-		go runRoutinesFastest(&sender, ch, goldenFound, funcSignature, numThreads, thread, tries)
+		go runRoutinesFastest(&sender, ch, goldenFound, funcSignature, numThreads, uint(thread), tries)
 	}
 	go receiveFuncSelectors(ch)
 	sender.Wait()
@@ -31,12 +31,12 @@ func searchFuncSelectorFastest(funcSignature string, numThreads int, tries int) 
 	fmt.Println(fmt.Sprintf("Complete fastest run in %s", time.Since(start)))
 }
 
-func runRoutinesFastest(wg *sync.WaitGroup, ch chan<- string, goldenFound chan bool, funcSignature string, numThreads int, thread int, tries int) {
+func runRoutinesFastest(wg *sync.WaitGroup, ch chan<- string, goldenFound chan bool, funcSignature string, numThreads int, thread uint, tries uint) {
 	defer wg.Done()
 	maxZeroes := 0
 	startNum := thread * tries
 	maxNum := (thread + 1) * tries
-	fmt.Println("Start -> Max : ", startNum, maxNum)
+
 	for i := startNum; i < maxNum; i++ {
 		select {
 		case <-goldenFound:
@@ -44,10 +44,11 @@ func runRoutinesFastest(wg *sync.WaitGroup, ch chan<- string, goldenFound chan b
 		default:
 			break
 		}
+
 		newFuncSig := fmt.Sprintf(funcSignature, i)
 		funcSelector := getFuncSelector(newFuncSig)
-
 		numZeroes := countLeadingZeros(funcSelector)
+
 		if numZeroes%2 == 0 && numZeroes > maxZeroes {
 			maxZeroes = numZeroes
 			ch <- funcSelector
