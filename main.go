@@ -4,46 +4,42 @@ import (
 	"encoding/hex"
 	"fmt"
 	"golang.org/x/crypto/sha3"
+	"runtime"
 	"sync"
 	"time"
 )
 
 func main() {
-	funcSignature := "transfer%d(uint256,address)"
-	//tries := 10000000
-	//searchFuncSelectorBenchmark(funcSignature, tries)
-	//searchFuncSelectorFast(funcSignature)
-	searchFuncSelectorFastest(funcSignature)
+	funcSignature := "balanceOf%d(address)"
+	tries := 10000000
+	searchFuncSelectorFastest(funcSignature, runtime.GOMAXPROCS(runtime.NumCPU()), tries)
 }
 
 // concurrent search, split search amount 10 goroutines and stop as soon as a minimum value function selector is found
-func searchFuncSelectorFastest(funcSignature string) {
+func searchFuncSelectorFastest(funcSignature string, numThreads int, tries int) {
 	start := time.Now()
 	var sender sync.WaitGroup
 	ch := make(chan string, 100)
-	goldenFound := make(chan bool, 10)
-	goldenFound <- false
-	for i := 0; i < 10; i++ {
+	goldenFound := make(chan bool, numThreads)
+	for thread := 0; thread < numThreads; thread++ {
 		sender.Add(1)
-		go runRoutinesFastest(&sender, ch, goldenFound, funcSignature, i)
+		go runRoutinesFastest(&sender, ch, goldenFound, funcSignature, numThreads, thread, tries)
 	}
 	go receiveFuncSelectors(ch)
 	sender.Wait()
 	close(ch)
-	fmt.Println(fmt.Sprintf("Complete fast run in %s", time.Since(start)))
+	fmt.Println(fmt.Sprintf("Complete fastest run in %s", time.Since(start)))
 }
 
-func runRoutinesFastest(wg *sync.WaitGroup, ch chan<- string, goldenFound chan bool, funcSignature string, tries int) {
+func runRoutinesFastest(wg *sync.WaitGroup, ch chan<- string, goldenFound chan bool, funcSignature string, numThreads int, thread int, tries int) {
 	defer wg.Done()
 	maxZeroes := 0
-	minFuncSelector := ""
-	startNum := tries * 10000000
-	maxNum := (tries + 1) * 10000000
+	startNum := thread * tries
+	maxNum := (thread + 1) * tries
 	fmt.Println("Start -> Max : ", startNum, maxNum)
 	for i := startNum; i < maxNum; i++ {
 		select {
 		case <-goldenFound:
-			fmt.Println("Golden Set (Exiting)")
 			return
 		default:
 			break
@@ -54,11 +50,10 @@ func runRoutinesFastest(wg *sync.WaitGroup, ch chan<- string, goldenFound chan b
 		numZeroes := countLeadingZeros(funcSelector)
 		if numZeroes%2 == 0 && numZeroes > maxZeroes {
 			maxZeroes = numZeroes
-			minFuncSelector = funcSelector
-			ch <- minFuncSelector
+			ch <- funcSelector
 			if funcSelector[0:6] == "000000" {
-				fmt.Println("Golden Found : ", funcSelector)
-				for a := 0; a < 10; a++ {
+				fmt.Println(fmt.Sprintf("Found golden function selector '%s' with value '%s'", funcSelector, newFuncSig))
+				for t := 0; t < numThreads; t++ {
 					goldenFound <- true
 				}
 				return
@@ -67,69 +62,11 @@ func runRoutinesFastest(wg *sync.WaitGroup, ch chan<- string, goldenFound chan b
 	}
 }
 
-// concurrent search, split search amount 10 goroutines print the minimum value function selectors from each
-func searchFuncSelectorFast(funcSignature string) {
-	start := time.Now()
-	var sender sync.WaitGroup
-	ch := make(chan string, 100)
-	for i := 0; i < 10; i++ {
-		sender.Add(1)
-		go runRoutines(&sender, ch, funcSignature, i)
-	}
-	go receiveFuncSelectors(ch)
-	sender.Wait()
-	fmt.Println(fmt.Sprintf("Complete fast run in %s", time.Since(start)))
-}
-
 func receiveFuncSelectors(ch chan string) {
 	open := true
-	output := ""
 	for open {
-		output, open = <-ch
-		fmt.Println("Received from channel : "+output+" with open status : ", open)
+		_, open = <-ch
 	}
-}
-
-func runRoutines(wg *sync.WaitGroup, ch chan<- string, funcSignature string, tries int) {
-	defer wg.Done()
-	maxZeroes := 0
-	minFuncSelector := ""
-	startNum := tries * 1000000
-	maxNum := (tries + 1) * 1000000
-	fmt.Println("Start -> Max : ", startNum, maxNum)
-	for i := startNum; i < maxNum; i++ {
-		newFuncSig := fmt.Sprintf(funcSignature, i)
-		funcSelector := getFuncSelector(newFuncSig)
-
-		numZeroes := countLeadingZeros(funcSelector)
-		if numZeroes%2 == 0 && numZeroes > maxZeroes {
-			maxZeroes = numZeroes
-			minFuncSelector = funcSelector
-			ch <- minFuncSelector
-		}
-	}
-}
-
-// sequential search, run x amount of times and print the minimum value function selector
-func searchFuncSelectorBenchmark(funcSignature string, tries int) {
-	maxZeroes := 0
-	minFuncSelector := ""
-	minFuncName := ""
-	start := time.Now()
-	for i := 0; i < tries; i++ {
-		newFuncSig := fmt.Sprintf(funcSignature, i)
-		funcSelector := getFuncSelector(newFuncSig)
-
-		numZeroes := countLeadingZeros(funcSelector)
-		if numZeroes%2 == 0 && numZeroes > maxZeroes {
-			maxZeroes = numZeroes
-			minFuncSelector = funcSelector
-			minFuncName = newFuncSig
-		}
-	}
-	fmt.Println("Min Selector\t: ", minFuncSelector)
-	fmt.Println("Min Func Name \t: ", minFuncName)
-	fmt.Println(fmt.Sprintf("Complete in %s with %d tries", time.Since(start), tries))
 }
 
 func countLeadingZeros(funcSelector string) int {
