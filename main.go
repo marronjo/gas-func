@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -11,7 +12,10 @@ type model struct {
 	choices  []string
 	cursor   int
 	selected map[int]struct{}
+	message  string
 }
+
+type printMessage string
 
 func initialModel() model {
 	return model{
@@ -47,8 +51,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				delete(m.selected, m.cursor)
 			} else {
 				m.selected[m.cursor] = struct{}{}
+				if m.cursor == 0 {
+					return m, createMessage("Gas Golfing", 4)
+				} else {
+					return m, createMessage("Print Message", 2)
+				}
 			}
 		}
+	case printMessage:
+		m.message = string(msg)
 	}
 	return m, nil
 }
@@ -70,15 +81,25 @@ func (m model) View() string {
 		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
 	}
 
+	if m.message != "" {
+		s += fmt.Sprintf("Message : [%s]\n", m.message)
+	}
+
 	s += "\nPress q or ctrl+c to quit.\n"
 
 	return s
 }
 
+func createMessage(msg string, seconds int) tea.Cmd {
+	return func() tea.Msg {
+		time.Sleep(time.Duration(seconds) * time.Second)
+		return printMessage(msg)
+	}
+}
+
 func main() {
-	p := tea.NewProgram(initialModel())
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
+	if _, err := tea.NewProgram(initialModel()).Run(); err != nil {
+		fmt.Printf("error occurred: %v", err)
 		os.Exit(1)
 	}
 }
