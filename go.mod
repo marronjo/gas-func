@@ -1,4 +1,4 @@
-module yoke
+module github.com/marronjo/yoke
 
 go 1.22.2
 
