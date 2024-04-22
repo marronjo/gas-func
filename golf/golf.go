@@ -9,10 +9,15 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-func SearchFuncSelector(funcSignature string, numThreads int) (string, time.Duration) {
+type Result struct {
+	name     string
+	selector string
+}
+
+func SearchFuncSelector(funcSignature string, numThreads int) (string, string, time.Duration) {
 	start := time.Now()
 	var sender sync.WaitGroup
-	ch := make(chan string, numThreads)
+	ch := make(chan Result, numThreads)
 	goldenFound := make(chan bool, numThreads)
 	tries := ^uint(0) / uint(numThreads)
 
@@ -24,24 +29,22 @@ func SearchFuncSelector(funcSignature string, numThreads int) (string, time.Dura
 	sender.Wait()
 	close(ch)
 
-	bestFuncSelector := aggregateFuncSelectors(ch, numThreads)
+	result := aggregateFuncSelectors(ch, numThreads)
 
-	fmt.Printf("Best Selector : %s\n", bestFuncSelector)
-	fmt.Printf("Complete fastest run in %s", time.Since(start))
-	return bestFuncSelector, time.Since(start)
+	return result.name, result.selector, time.Since(start)
 }
 
-func runRoutinesFastest(wg *sync.WaitGroup, ch chan<- string, goldenFound chan bool, funcSignature string, numThreads int, thread uint, tries uint) {
+func runRoutinesFastest(wg *sync.WaitGroup, ch chan<- Result, goldenFound chan bool, funcSignature string, numThreads int, thread uint, tries uint) {
 	defer wg.Done()
 	maxZeroes := 0
-	minFuncSelector := ""
+	min := Result{}
 	startNum := thread * tries
 	maxNum := (thread + 1) * tries
 
 	for i := startNum; i < maxNum; i++ {
 		select {
 		case <-goldenFound:
-			ch <- minFuncSelector
+			ch <- min
 			return
 		default:
 		}
@@ -52,35 +55,34 @@ func runRoutinesFastest(wg *sync.WaitGroup, ch chan<- string, goldenFound chan b
 
 		if numZeroes%2 == 0 && numZeroes > maxZeroes {
 			maxZeroes = numZeroes
-			minFuncSelector = funcSelector
+			min = Result{name: newFuncSig, selector: funcSelector}
 			if funcSelector[0:6] == "000000" {
-				fmt.Printf("Found golden function selector '%s' with value '%s'\n", funcSelector, newFuncSig)
 				for t := 0; t < numThreads; t++ {
 					goldenFound <- true
 				}
-				ch <- funcSelector
+				ch <- min
 				return
 			}
 		}
 	}
-	ch <- minFuncSelector
+	ch <- min
 }
 
-func aggregateFuncSelectors(ch chan string, numThreads int) string { //, receiver *sync.WaitGroup) {
-	selectors := make([]string, numThreads)
-	for val := range ch {
-		if val != "" {
-			selectors = append(selectors, val)
+func aggregateFuncSelectors(ch chan Result, numThreads int) Result { //, receiver *sync.WaitGroup) {
+	selectors := make([]Result, numThreads)
+	for result := range ch {
+		if result.selector != "" {
+			selectors = append(selectors, result)
 		}
 	}
 	return getLowestSelector(selectors)
 }
 
-func getLowestSelector(selectors []string) string {
+func getLowestSelector(selectors []Result) Result {
 	maxZeroes := 0
-	lowestSelector := ""
+	lowestSelector := Result{}
 	for i := 0; i < len(selectors); i++ {
-		zeros := countLeadingZeros(selectors[i])
+		zeros := countLeadingZeros(selectors[i].selector)
 		if zeros > maxZeroes {
 			lowestSelector = selectors[i]
 			maxZeroes = zeros
