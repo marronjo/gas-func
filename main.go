@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/marronjo/yoke/golf"
 )
 
 type model struct {
@@ -58,7 +61,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selected[m.cursor] = struct{}{}
 				m.processing = true
 				if m.cursor == 0 {
-					return m, tea.Batch(createMessage("Gas Golfing", 4), m.spinner.Tick)
+					return m, tea.Batch(gasGolf("mint%d(uint256,address)"), m.spinner.Tick)
 				} else {
 					return m, tea.Batch(createMessage("Print Message", 2), m.spinner.Tick)
 				}
@@ -103,6 +106,13 @@ func (m model) View() string {
 	s += "\nPress q or ctrl+c to quit.\n"
 
 	return s
+}
+
+func gasGolf(funcPattern string) tea.Cmd {
+	return func() tea.Msg {
+		_, selector, _ := golf.SearchFuncSelector(funcPattern, runtime.NumCPU())
+		return printMessage(selector)
+	}
 }
 
 func createMessage(msg string, seconds int) tea.Cmd {
