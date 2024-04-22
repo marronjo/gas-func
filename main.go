@@ -5,14 +5,17 @@ import (
 	"os"
 	"time"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type model struct {
-	choices  []string
-	cursor   int
-	selected map[int]struct{}
-	message  string
+	choices    []string
+	cursor     int
+	selected   map[int]struct{}
+	message    string
+	processing bool
+	spinner    spinner.Model
 }
 
 type printMessage string
@@ -24,6 +27,7 @@ func initialModel() model {
 			"print message",
 		},
 		selected: make(map[int]struct{}),
+		spinner:  spinner.New(),
 	}
 }
 
@@ -36,6 +40,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
+			m.processing = false
 			return m, tea.Quit
 		case "up":
 			if m.cursor > 0 {
@@ -51,15 +56,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				delete(m.selected, m.cursor)
 			} else {
 				m.selected[m.cursor] = struct{}{}
+				m.processing = true
 				if m.cursor == 0 {
-					return m, createMessage("Gas Golfing", 4)
+					return m, tea.Batch(createMessage("Gas Golfing", 4), m.spinner.Tick)
 				} else {
-					return m, createMessage("Print Message", 2)
+					return m, tea.Batch(createMessage("Print Message", 2), m.spinner.Tick)
 				}
 			}
 		}
 	case printMessage:
+		m.processing = false
 		m.message = string(msg)
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	}
 	return m, nil
 }
@@ -81,8 +92,12 @@ func (m model) View() string {
 		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
 	}
 
+	if m.processing {
+		s += m.spinner.View()
+	}
+
 	if m.message != "" {
-		s += fmt.Sprintf("Message : [%s]\n", m.message)
+		s += fmt.Sprintf("\nMessage : [%s]\n", m.message)
 	}
 
 	s += "\nPress q or ctrl+c to quit.\n"
