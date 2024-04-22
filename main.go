@@ -23,6 +23,12 @@ type model struct {
 
 type printMessage string
 
+type gasGolfResult struct {
+	name      string
+	selector  string
+	timeTaken time.Duration
+}
+
 func initialModel() model {
 	return model{
 		choices: []string{
@@ -74,6 +80,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
+	case gasGolfResult:
+		m.processing = false
+		m.message = fmt.Sprintf("name: %s\nselector: %s\ntime taken: %v\n", msg.name, msg.selector, msg.timeTaken)
 	}
 	return m, nil
 }
@@ -100,7 +109,7 @@ func (m model) View() string {
 	}
 
 	if m.message != "" {
-		s += fmt.Sprintf("\nMessage : [%s]\n", m.message)
+		s += fmt.Sprintf("\n%s\n", m.message)
 	}
 
 	s += "\nPress q or ctrl+c to quit.\n"
@@ -110,8 +119,12 @@ func (m model) View() string {
 
 func gasGolf(funcPattern string) tea.Cmd {
 	return func() tea.Msg {
-		_, selector, _ := golf.SearchFuncSelector(funcPattern, runtime.NumCPU())
-		return printMessage(selector)
+		name, selector, timeTaken := golf.SearchFuncSelector(funcPattern, runtime.NumCPU())
+		return gasGolfResult{
+			name:      name,
+			selector:  selector,
+			timeTaken: timeTaken,
+		}
 	}
 }
 
