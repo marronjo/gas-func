@@ -71,14 +71,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.processing = true
 				return m, tea.Batch(gasGolf(m.input.Value()), m.spinner.Tick)
 			}
-			//m.processing = true
 			if m.cursor == 0 {
-				m.title = "Gas Golfing\nInput Function Selector\n"
+				m.title = "Gas Golfing\n"
 				m.interactive = true
+				m.input.Placeholder = "Function Selector"
 				return m, tea.Batch(m.input.Focus(), textinput.Blink)
 			} else {
 				return m, tea.Batch(createMessage("Print Message", 2), m.spinner.Tick)
 			}
+		case "m":
+			m.interactive = false
+			m.title = "Yoke CLI"
+			return m, nil
 		}
 	case printMessage:
 		m.processing = false
@@ -107,7 +111,7 @@ func (m model) View() string {
 		writeMenuLayout(&sb, m)
 	}
 
-	sb.WriteString("\nPress q or ctrl+c to quit.\n")
+	sb.WriteString("\nPress q to quit or m for menu.\n")
 
 	return sb.String()
 }
@@ -127,9 +131,9 @@ func writeInteractiveLayout(sb *strings.Builder, m model) {
 func writeMenuLayout(sb *strings.Builder, m model) {
 	sb.WriteString("What would you like to do ?\n\n")
 	for i, choice := range m.choices {
-		cursor := "  "
+		cursor := " "
 		if m.cursor == i {
-			cursor = "->"
+			cursor = "*"
 		}
 		sb.WriteString(fmt.Sprintf("%s %s\n", cursor, choice))
 	}
