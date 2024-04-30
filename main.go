@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 	"time"
 
@@ -23,6 +22,7 @@ type model struct {
 	spinner     spinner.Model
 	input       textinput.Model
 	interactive bool
+	err         error
 }
 
 type printMessage string
@@ -32,6 +32,10 @@ type gasGolfResult struct {
 	selector  string
 	timeTaken time.Duration
 }
+
+type errMsg struct{ err error }
+
+func (e errMsg) Error() string { return e.err.Error() }
 
 func initialModel() model {
 	return model{
@@ -94,6 +98,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case gasGolfResult:
 		m.processing = false
 		m.message = fmt.Sprintf("\nname:\t%s\nselector:\t%s\ntime taken:\t%v", msg.name, msg.selector, msg.timeTaken)
+	case errMsg:
+		m.err = msg
+		return m, tea.Quit
 	}
 
 	m.input, cmd = m.input.Update(msg)
@@ -104,6 +111,10 @@ func (m model) View() string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("%s\n", m.title))
+
+	if m.err != nil {
+		return fmt.Sprintf("\nWe had some trouble: %v\n\n", m.err)
+	}
 
 	if m.interactive {
 		writeInteractiveLayout(&sb, m)
@@ -141,11 +152,14 @@ func writeMenuLayout(sb *strings.Builder, m model) {
 
 func gasGolf(funcPattern string) tea.Cmd {
 	return func() tea.Msg {
-		name, selector, timeTaken := golf.SearchFuncSelector(funcPattern, runtime.NumCPU())
+		result, err := golf.SearchFuncSelector(funcPattern)
+		if err != nil {
+			return errMsg{err}
+		}
 		return gasGolfResult{
-			name:      name,
-			selector:  selector,
-			timeTaken: timeTaken,
+			name:      result.Name,
+			selector:  result.Selector,
+			timeTaken: result.TimeTaken,
 		}
 	}
 }
