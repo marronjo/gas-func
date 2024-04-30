@@ -15,7 +15,7 @@ import (
 
 const (
 	MAX_UINT    = ^uint(0)
-	PLACEHOLDER = "@"
+	REPLACEMENT = "%d"
 )
 
 type Result struct {
@@ -31,6 +31,8 @@ func SearchFuncSelector(funcSignature string) (Result, error) {
 		return Result{}, inputError
 	}
 
+	formattedSelector := formatInput(funcSignature)
+
 	start := time.Now()
 	numThreads := runtime.NumCPU()
 
@@ -41,7 +43,7 @@ func SearchFuncSelector(funcSignature string) (Result, error) {
 
 	for thread := 0; thread < numThreads; thread++ {
 		wg.Add(1)
-		go runSearcher(&wg, ch, goldenFound, funcSignature, numThreads, uint(thread), tries)
+		go runSearcher(&wg, ch, goldenFound, formattedSelector, numThreads, uint(thread), tries)
 	}
 
 	wg.Wait()
@@ -122,13 +124,12 @@ func getFuncSelector(funcSignature string) string {
 	return hex.EncodeToString(funcSelBytes[:4])
 }
 
-func validateInput(funcSelector string) error {
-	// check how many place holder characters, revert if more than 1
-	phError, _ := checkPlaceholderCharacters(funcSelector)
-	if phError != nil {
-		return phError
-	}
+func formatInput(funcSelector string) string {
+	idx := strings.Index(funcSelector, "(")
+	return funcSelector[:idx] + REPLACEMENT + funcSelector[idx:]
+}
 
+func validateInput(funcSelector string) error {
 	// ensure all characters in function name are valid e.g. no symbols
 	funcNameError := checkFunctionName(funcSelector)
 	if funcNameError != nil {
@@ -143,14 +144,6 @@ func validateInput(funcSelector string) error {
 	return nil
 }
 
-func checkPlaceholderCharacters(funcSelector string) (error, int) {
-	phCount := strings.Count(funcSelector, PLACEHOLDER)
-	if phCount > 1 {
-		return errors.New("too many placeholders found in input"), 0
-	}
-	return nil, phCount
-}
-
 func checkFunctionName(funcSelector string) error {
 	funcName := strings.Split(funcSelector, "(")
 	if len(funcName) == 1 {
@@ -158,8 +151,8 @@ func checkFunctionName(funcSelector string) error {
 	}
 
 	for _, c := range funcName[0] {
-		if !unicode.IsLetter(c) || !unicode.IsDigit(c) {
-			return errors.New(fmt.Sprintf("character %c not allowed in function name", c))
+		if !unicode.IsLetter(c) && !unicode.IsDigit(c) {
+			return fmt.Errorf("character %c not allowed in function name", c)
 		}
 	}
 	return nil
