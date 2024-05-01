@@ -83,7 +83,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				return m, tea.Batch(createMessage("Print Message", 2), m.spinner.Tick)
 			}
-		case "m":
+		case "esc":
 			m.interactive = false
 			m.title = "Yoke CLI"
 			return m, nil
@@ -113,7 +113,7 @@ func (m model) View() string {
 	sb.WriteString(fmt.Sprintf("%s\n", m.title))
 
 	if m.err != nil {
-		return fmt.Sprintf("\nWe had some trouble: %v\n\n", m.err)
+		return fmt.Sprintf("\nError: %v\n\n", m.err)
 	}
 
 	if m.interactive {
@@ -122,7 +122,7 @@ func (m model) View() string {
 		writeMenuLayout(&sb, m)
 	}
 
-	sb.WriteString("\nPress q to quit or m for menu.\n")
+	sb.WriteString("\nPress q to quit or esc for menu.\n")
 
 	return sb.String()
 }
