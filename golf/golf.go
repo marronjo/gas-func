@@ -16,6 +16,8 @@ import (
 const (
 	MAX_UINT    = ^uint(0)
 	REPLACEMENT = "%d"
+	L_BRACKET   = "("
+	R_BRACKET   = ")"
 )
 
 type Result struct {
@@ -125,7 +127,7 @@ func getFuncSelector(funcSignature string) string {
 }
 
 func formatInput(funcSelector string) string {
-	idx := strings.Index(funcSelector, "(")
+	idx := strings.Index(funcSelector, L_BRACKET)
 	return funcSelector[:idx] + REPLACEMENT + funcSelector[idx:]
 }
 
@@ -145,7 +147,7 @@ func validateInput(funcSelector string) error {
 }
 
 func checkFunctionName(funcSelector string) error {
-	funcName := strings.Split(funcSelector, "(")
+	funcName := strings.Split(funcSelector, L_BRACKET)
 	if len(funcName) == 1 {
 		return errors.New("no opening bracket found in function name")
 	}
@@ -159,11 +161,11 @@ func checkFunctionName(funcSelector string) error {
 }
 
 func checkFunctionStructure(funcSelector string) error {
-	if strings.Count(funcSelector, "(") != 1 || strings.Count(funcSelector, ")") != 1 {
+	if strings.Count(funcSelector, L_BRACKET) != 1 || strings.Count(funcSelector, R_BRACKET) != 1 {
 		return errors.New("invalid number of brackets")
 	}
-	idxb1 := strings.Index(funcSelector, "(")
-	idxb2 := strings.Index(funcSelector, ")")
+	idxb1 := strings.Index(funcSelector, L_BRACKET)
+	idxb2 := strings.Index(funcSelector, R_BRACKET)
 	if idxb1 > idxb2 {
 		return errors.New("invalid bracket order")
 	}
