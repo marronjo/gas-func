@@ -162,6 +162,16 @@ func checkFunctionStructure(funcSelector string) error {
 	if strings.Count(funcSelector, "(") != 1 || strings.Count(funcSelector, ")") != 1 {
 		return errors.New("invalid number of brackets")
 	}
-	//check valid input types
-	return nil
+	idxb1 := strings.Index(funcSelector, "(")
+	idxb2 := strings.Index(funcSelector, ")")
+	if idxb1 > idxb2 {
+		return errors.New("invalid bracket order")
+	}
+
+	args := funcSelector[idxb1+1 : idxb2]
+	if len(args) == 0 {
+		return nil
+	}
+	funcArgs := strings.Split(args, ",")
+	return areValidtypes(funcArgs)
 }
