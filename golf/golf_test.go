@@ -4,6 +4,16 @@ import (
 	"testing"
 )
 
+func TestSuccess(t *testing.T) {
+	input := "deposit(address,uint256,int16)"
+	result, err := SearchFuncSelector(input)
+
+	if result == (Result{}) || err != nil {
+		t.Errorf("Expected success response, none found")
+	}
+	logSuccess(t, input, result.Selector)
+}
+
 func TestMissingFirstBracket(t *testing.T) {
 	missingBracket := "deposit)"
 	result, err := SearchFuncSelector(missingBracket)
@@ -92,6 +102,10 @@ func TestInvalidString(t *testing.T) {
 		t.Errorf("Expected error from invalid input type, none found")
 	}
 	log(t, err, invalidName)
+}
+
+func logSuccess(t *testing.T, input string, result string) {
+	t.Logf("Got result '%s' from input '%s'", result, input)
 }
 
 func log(t *testing.T, err error, input string) {

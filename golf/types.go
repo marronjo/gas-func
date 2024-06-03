@@ -19,6 +19,7 @@ var typeMap = map[string]bound{
 	"bytes":   {min: 1, max: 32, step: 1},
 	"address": {},
 	"string":  {},
+	"bool":    {},
 }
 
 func areValidtypes(types []string) error {
@@ -62,7 +63,7 @@ func checkValidType(t string) error {
 		return fmt.Errorf("invalid function arg suffix %s", typeVal)
 	}
 
-	if typeInt >= b.min && typeInt <= b.max && typeInt%b.step == 0 {
+	if typeInt > b.min && typeInt <= b.max && typeInt%b.step == 0 {
 		return nil
 	}
 

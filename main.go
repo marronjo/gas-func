@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/marronjo/yoke/address"
 	"github.com/marronjo/yoke/golf"
 )
 
@@ -25,7 +26,9 @@ type model struct {
 	err         error
 }
 
-type printMessage string
+type addressResult struct {
+	address string
+}
 
 type gasGolfResult struct {
 	name      string
@@ -42,7 +45,7 @@ func initialModel() model {
 		title: "yoke CLI",
 		choices: []string{
 			"go gas golfing",
-			"print message",
+			"generate address",
 		},
 		spinner: spinner.New(),
 		input:   textinput.New(),
@@ -73,7 +76,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter", " ":
 			if m.interactive {
 				m.processing = true
-				return m, tea.Batch(gasGolf(m.input.Value()), m.spinner.Tick)
+				if m.cursor == 0 {
+					return m, tea.Batch(gasGolf(m.input.Value()), m.spinner.Tick)
+				} else {
+					return m, tea.Batch(generateAddress(m.input.Value()), m.spinner.Tick)
+				}
 			}
 			if m.cursor == 0 {
 				m.title = "Gas Golfing\n"
@@ -81,16 +88,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.input.Placeholder = "Function Selector"
 				return m, tea.Batch(m.input.Focus(), textinput.Blink)
 			} else {
-				return m, tea.Batch(createMessage("Print Message", 2), m.spinner.Tick)
+				m.title = "Address Generator\n"
+				m.interactive = true
+				m.input.Placeholder = "Private Key"
+				return m, tea.Batch(m.input.Focus(), textinput.Blink)
 			}
 		case "esc":
+			m.input.Reset()
+			m.message = ""
 			m.interactive = false
 			m.title = "Yoke CLI"
 			return m, nil
 		}
-	case printMessage:
-		m.processing = false
-		m.message = string(msg)
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
@@ -98,6 +107,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case gasGolfResult:
 		m.processing = false
 		m.message = fmt.Sprintf("\nname:\t%s\nselector:\t%s\ntime taken:\t%v", msg.name, msg.selector, msg.timeTaken)
+	case addressResult:
+		m.processing = false
+		m.message = fmt.Sprintf("\naddress:\t%s", msg.address)
 	case errMsg:
 		m.err = msg
 		return m, tea.Quit
@@ -164,10 +176,15 @@ func gasGolf(funcPattern string) tea.Cmd {
 	}
 }
 
-func createMessage(msg string, seconds int) tea.Cmd {
+func generateAddress(privateKey string) tea.Cmd {
 	return func() tea.Msg {
-		time.Sleep(time.Duration(seconds) * time.Second)
-		return printMessage(msg)
+		result, err := address.GenerateAddressFromPrivateKey(privateKey)
+		if err != nil {
+			return errMsg{err}
+		}
+		return addressResult{
+			address: result,
+		}
 	}
 }
 
